@@ -36,16 +36,229 @@ export default {
           sharp: true,
         },
         scroller: {
-          enabled: true,
+          enabled: false,
           pageVisible: false,
           pageBreak: false,
           pannable: true,
         },
       })
 
+      // graph初始定义两个圆形，start&end
+      const start = new Circle({
+        id: 'start',
+        x: 40,
+        y: 40,
+        width: 50,
+        height: 50,
+        label: 'Start',
+        ports: [
+          {
+            id: 'start-port',
+            attrs: {
+              circle: {
+                r: 6,
+                magnet: true,
+                stroke: '#31d0c6',
+                strokeWidth: 2,
+                fill: '#fff',
+              },
+            }
+          }
+        ]
+      });
+
+      const end = new Circle({
+        id: 'end',
+        x: 40,
+        y: 300,
+        width: 50,
+        height: 50,
+        label: 'End',
+        ports: [
+          {
+            id: 'end-port',
+            attrs: {
+              circle: {
+                r: 6,
+                magnet: true,
+                stroke: '#31d0c6',
+                strokeWidth: 2,
+                fill: '#fff',
+              }
+            }
+          }
+        ]
+      });
+
+      graph.addNode(start)
+      graph.addNode(end)
+
       graph.on('node:delete', ({ view, e }) => {
         e.stopPropagation()
         view.cell.remove()
+      })
+
+      // TODO 自定义连接桩布局bottom-inline
+      // const bottomInline = (portsPositionArgs, elemBox) => {
+      //   console.log(portsPositionArgs, elemBox)
+      //   return {
+      //     position: {
+      //       x: 0,
+      //       y: 0
+      //     }
+      //   }
+      // }
+      //
+      // Graph.unregisterPortLabelLayout('bottom-inline')
+      // Graph.registerPortLabelLayout('bottom-inline', bottomInline)
+
+      Graph.unregisterNode('my-rect')
+      // 定义并注册基类 MyRect
+      Graph.registerNode('my-rect', {
+        inherit: 'rect',
+        width: 120,
+        height: 100,
+        attrs: {
+          label: {
+            fill: '#000',
+            fontSize: 16
+          }
+        },
+        ports: {
+          groups: {
+            in: {
+              position: 'top',
+              markup: {
+                tagName: 'rect'
+              },
+              attrs: {
+                rect: {
+                  width: 10,
+                  height: 10,
+                  fill: '#e37650',
+                  magnet: true,
+                }
+              }
+            },
+            out: {
+              position: {
+                name: 'bottom'
+              },
+              markup: {
+                tagName: 'rect',
+                selector: 'rect'
+              },
+              attrs: {
+                rect: {
+                  width: 10,
+                  height: 10,
+                  fill: '#0813ee',
+                  magnet: true,
+                }
+              }
+            }
+          }
+        }
+      })
+
+      // 给节点添加mouse-enter事件
+      const mouseEnter = ({ cell }) => {
+        if (cell.shape === 'my-rect') {
+          console.log('tr')
+          cell.addTools([
+            {
+              name: 'button',
+              args: {
+                markup: [
+                  {
+                    tagName: 'rect',
+                    selector: 'button',
+                    attrs: {
+                      width: 20,
+                      height: 10,
+                      stroke: 'red',
+                      strokeWidth: 2,
+                      fill: '#ddd',
+                      cursor: 'pointer',
+                    },
+                  },
+                  {
+                    tagName: 'text',
+                    textContent: 'Edit',
+                    selector: 'icon',
+                    attrs: {
+                      fill: '#ddd',
+                      fontSize: 10,
+                      textAnchor: 'middle',
+                      pointerEvents: 'none'
+                    },
+                  },
+                ],
+                x: '90%',
+                y: '80%',
+                onClick() {
+                  console.log('点点点')
+                },
+              }
+            },
+            {
+              name: 'button-remove',
+              args: {
+                x: '100%',
+                y: 0,
+                offset: {
+                  x: -10,
+                  y: 10,
+                }
+              }
+            }
+          ])
+        }
+      }
+
+      graph.on('cell:dblclick', () => {
+        alert('双击打开dialog')
+      })
+
+      graph.on('cell:mouseenter', mouseEnter)
+      graph.on('cell:mouseleave', ({ cell }) => {
+        console.log('鼠标移出', cell.shape)
+        if (cell.shape === 'my-rect') {
+          cell.removeTools()
+        }
+      })
+
+      const userStatus = graph.createNode({
+        shape: 'my-rect',
+        label: 'User Status',
+        attrs: {
+          rect: {
+            fill: '#31D0C6'
+          }
+        },
+        ports: [
+          { id: 'i1', group: 'in' },
+          { id: '0', group: 'out' },
+          { id: '1', group: 'out' },
+          { id: '2', group: 'out' },
+        ]
+      })
+
+      const confirm = graph.createNode({
+        shape: 'my-rect',
+        label: 'Confirm',
+        attrs: {
+          rect: {
+            fill: '#c68ade'
+          }
+        },
+        ports: [
+          { id: 'i1', group: 'in' },
+          { id: '0', group: 'out' },
+          { id: '1', group: 'out' },
+          { id: '2', group: 'out' },
+          { id: '3', group: 'out' }
+        ]
       })
 
       const stencil = new Stencil({
@@ -53,23 +266,24 @@ export default {
         target: graph,
         search: true,
         collapsable: true,
-        stencilGraphWidth: 200,
-        stencilGraphHeight: 180,
-        groups: [
-          {
-            name: 'group1',
-            title: 'Group(Collapsable)',
-          },
-          {
-            name: 'group2',
-            title: 'Group',
-            collapsable: false,
-          },
-        ],
+        stencilGraphWidth: 250,
+        stencilGraphHeight: 800,
+        layoutOptions: {
+          columns: 1,
+          resizeToFit: false,
+          rowHeight: 150,
+          center: true,
+          marginX: 50
+        }
       })
 
 
       this.$refs.stencilContainer.appendChild(stencil.container)
+
+
+      stencil.on('node:mouseenter', (a,b,c) => {
+        console.log('aaa', a,b,c)
+      })
 
       const r = new Rect({
         width: 70,
@@ -202,26 +416,7 @@ export default {
         }
       })
 
-      const r3 = new Rect({
-        width: 70,
-        height: 40,
-        attrs: {
-          rect: {fill: '#31D0C6', stroke: '#4B4A67', strokeWidth: 1},
-          text: {text: 'rect', fill: 'white'},
-        },
-      })
-
-      const c3 = new Circle({
-        width: 60,
-        height: 60,
-        attrs: {
-          circle: {fill: '#FE854F', strokeWidth: 1, stroke: '#4B4A67'},
-          text: {text: 'ellipse', fill: 'white'},
-        },
-      })
-
-      stencil.load([r, c, c2, r2.clone()], 'group1')
-      stencil.load([c2.clone(), r2, r3, c3], 'group2')
+      stencil.load([userStatus, confirm, r, c, c2, r2.clone()])
     }
 
   }
