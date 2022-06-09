@@ -15,7 +15,16 @@ import {Graph, Shape, Addon} from '@antv/x6';
 const {Stencil} = Addon
 
 const {Rect, Circle} = Shape
-
+const magnetAvailabilityHighlighter = {
+  name: 'stroke',
+  args: {
+    padding: 3,
+    attrs: {
+      strokeWidth: 3,
+      stroke: '#52c41a',
+    },
+  },
+}
 export default {
   name: 'hello-world',
   mounted() {
@@ -26,10 +35,51 @@ export default {
       const graph = new Graph({
         container: this.$refs.container,
         grid: true,
+        highlighting: {
+          magnetAvailable: magnetAvailabilityHighlighter,
+        },
         connecting: {
           snap: true, // 50px 自动吸附,
           allowBlank: false, // 不允许空链接
-          allowEdge: false // 不允许连接到边
+          allowEdge: false, // 不允许连接到边
+          router: {
+            name: 'manhattan', // 曼哈顿路由，边自动避让路过的节点，且边为垂直和水平
+          },
+          connector: {
+            // name: 'rounded', // 圆滑拐角
+            name: 'jumpover', // 跳线
+            args: {
+              radius: 10
+            }
+          },
+          highlight: true,
+          validateMagnet({ magnet }) {
+            return magnet.getAttribute('port-group') !== 'in'
+          },
+
+          validateConnection({ sourceMagnet, targetMagnet }) {
+            // 只能从输出链接桩创建连接
+            if (!sourceMagnet || sourceMagnet.getAttribute('port-group') === 'in') {
+              return false
+            }
+
+            // 只能连接到输入链接桩
+            if (!targetMagnet || targetMagnet.getAttribute('port-group') !== 'in') {
+              return false
+            }
+
+            return true
+          },
+          // validateEdge({ edge}) {
+          //   // 同群组不允许连接
+          //   const sourcePortId = edge.getSourcePortId();
+          //   const targetPortId = edge.getTargetPortId();
+          //   const { ports: sourcePorts } = edge.getSourceCell();
+          //   const { ports: targetPorts } = edge.getTargetCell();
+          //   const { group: sourceGroup } = sourcePorts.items.find(p => p.id === sourcePortId);
+          //   const { group: targetGroup } = targetPorts.items.find(p => p.id === targetPortId);
+          //   return sourceGroup !== targetGroup;
+          // }
         },
         snapline: {
           enabled: true,
@@ -41,6 +91,25 @@ export default {
           pageBreak: false,
           pannable: true,
         },
+      })
+
+      // 边可以移动
+      graph.on('edge:mouseenter', ({ cell }) => {
+        cell.addTools([
+          'source-arrowhead',
+          {
+            name: 'target-arrowhead',
+            args: {
+              attrs: {
+                fill: 'red',
+              },
+            },
+          },
+        ])
+      })
+
+      graph.on('edge:mouseleave', ({ cell }) => {
+        cell.removeTools()
       })
 
       // graph初始定义两个圆形，start&end
