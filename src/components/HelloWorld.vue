@@ -1,32 +1,48 @@
 <template>
 
-  <div className="content">
-    <div className="app-stencil" ref="stencilContainer">
+  <div class="content">
+    <div class="app-stencil" ref="stencilContainer">
     </div>
-    <div className="app-content" ref="container">
+    <div class="app-content" ref="container">
     </div>
   </div>
-
+  <el-dialog v-model="dialogShow">
+    <el-form>
+      <el-form-item
+          v-for="(item, index) in menuForm"
+          :key="index"
+          :label="item.label"
+          v-model="item.value"
+          :prop="item.label"
+      >
+        <el-input v-model="item.value" />
+      </el-form-item>
+    </el-form>
+  </el-dialog>
 </template>
 
 <script>
 import {Graph, Shape, Addon} from '@antv/x6';
-
+import {graphOptions, buildMyRect} from "@/config/graphConfig";
 const {Stencil} = Addon
 
-const {Rect, Circle} = Shape
-const magnetAvailabilityHighlighter = {
-  name: 'stroke',
-  args: {
-    padding: 3,
-    attrs: {
-      strokeWidth: 3,
-      stroke: '#52c41a',
-    },
-  },
-}
+const {Circle} = Shape
 export default {
   name: 'hello-world',
+  data() {
+    return {
+      components: [
+        {
+          compName: 'Comp A',
+          compDesc: 'Component A',
+          params: "A`A`^\\d{1-3}$~B`B`^[a-z]{1-3}",
+          ports: "1|2|-1"
+        }
+      ],
+      menuForm: [],
+      dialogShow: false
+    }
+  },
   mounted() {
     this.init();
   },
@@ -34,67 +50,11 @@ export default {
     init() {
       const graph = new Graph({
         container: this.$refs.container,
-        grid: true,
-        highlighting: {
-          magnetAvailable: magnetAvailabilityHighlighter,
-        },
-        connecting: {
-          snap: true, // 50px 自动吸附,
-          allowBlank: false, // 不允许空链接
-          allowEdge: false, // 不允许连接到边
-          router: {
-            name: 'manhattan', // 曼哈顿路由，边自动避让路过的节点，且边为垂直和水平
-          },
-          connector: {
-            // name: 'rounded', // 圆滑拐角
-            name: 'jumpover', // 跳线
-            args: {
-              radius: 10
-            }
-          },
-          highlight: true,
-          validateMagnet({ magnet }) {
-            return magnet.getAttribute('port-group') !== 'in'
-          },
-
-          validateConnection({ sourceMagnet, targetMagnet }) {
-            // 只能从输出链接桩创建连接
-            if (!sourceMagnet || sourceMagnet.getAttribute('port-group') === 'in') {
-              return false
-            }
-
-            // 只能连接到输入链接桩
-            if (!targetMagnet || targetMagnet.getAttribute('port-group') !== 'in') {
-              return false
-            }
-
-            return true
-          },
-          // validateEdge({ edge}) {
-          //   // 同群组不允许连接
-          //   const sourcePortId = edge.getSourcePortId();
-          //   const targetPortId = edge.getTargetPortId();
-          //   const { ports: sourcePorts } = edge.getSourceCell();
-          //   const { ports: targetPorts } = edge.getTargetCell();
-          //   const { group: sourceGroup } = sourcePorts.items.find(p => p.id === sourcePortId);
-          //   const { group: targetGroup } = targetPorts.items.find(p => p.id === targetPortId);
-          //   return sourceGroup !== targetGroup;
-          // }
-        },
-        snapline: {
-          enabled: true,
-          sharp: true,
-        },
-        scroller: {
-          enabled: false,
-          pageVisible: false,
-          pageBreak: false,
-          pannable: true,
-        },
+        ...graphOptions
       })
-
+      const vue = this
       // 边可以移动
-      graph.on('edge:mouseenter', ({ cell }) => {
+      graph.on('edge:mouseenter', ({cell}) => {
         cell.addTools([
           'source-arrowhead',
           {
@@ -108,7 +68,7 @@ export default {
         ])
       })
 
-      graph.on('edge:mouseleave', ({ cell }) => {
+      graph.on('edge:mouseleave', ({cell}) => {
         cell.removeTools()
       })
 
@@ -162,24 +122,10 @@ export default {
       graph.addNode(start)
       graph.addNode(end)
 
-      graph.on('node:delete', ({ view, e }) => {
+      graph.on('node:delete', ({view, e}) => {
         e.stopPropagation()
         view.cell.remove()
       })
-
-      // TODO 自定义连接桩布局bottom-inline
-      // const bottomInline = (portsPositionArgs, elemBox) => {
-      //   console.log(portsPositionArgs, elemBox)
-      //   return {
-      //     position: {
-      //       x: 0,
-      //       y: 0
-      //     }
-      //   }
-      // }
-      //
-      // Graph.unregisterPortLabelLayout('bottom-inline')
-      // Graph.registerPortLabelLayout('bottom-inline', bottomInline)
 
       Graph.unregisterNode('my-rect')
       // 定义并注册基类 MyRect
@@ -231,7 +177,7 @@ export default {
       })
 
       // 给节点添加mouse-enter事件
-      const mouseEnter = ({ cell }) => {
+      const mouseEnter = ({cell}) => {
         if (cell.shape === 'my-rect') {
           console.log('tr')
           cell.addTools([
@@ -266,8 +212,12 @@ export default {
                 x: '90%',
                 y: '80%',
                 onClick() {
-                  console.log('点点点')
-                },
+                  // 这里的this是当前NodeView
+                  const { cell } = this
+                  console.log(cell.store.data.inParams, vue)
+                  vue.menuForm = cell.store.data.inParams
+                  vue.dialogShow = true
+                }
               }
             },
             {
@@ -290,44 +240,44 @@ export default {
       })
 
       graph.on('cell:mouseenter', mouseEnter)
-      graph.on('cell:mouseleave', ({ cell }) => {
+      graph.on('cell:mouseleave', ({cell}) => {
         console.log('鼠标移出', cell.shape)
         if (cell.shape === 'my-rect') {
           cell.removeTools()
         }
       })
-
-      const userStatus = graph.createNode({
-        shape: 'my-rect',
-        label: 'User Status',
-        attrs: {
-          rect: {
-            fill: '#31D0C6'
-          }
-        },
-        ports: [
-          { id: 'i1', group: 'in' },
-          { id: '0', group: 'out' },
-          { id: '1', group: 'out' },
-          { id: '2', group: 'out' },
-        ]
-      })
-
-      const confirm = graph.createNode({
-        shape: 'my-rect',
-        label: 'Confirm',
-        attrs: {
-          rect: {
-            fill: '#c68ade'
-          }
-        },
-        ports: [
-          { id: 'i1', group: 'in' },
-          { id: '0', group: 'out' },
-          { id: '1', group: 'out' },
-          { id: '2', group: 'out' },
-          { id: '3', group: 'out' }
-        ]
+      const comps = []
+      this.components.forEach(c => {
+        const outPorts = []
+        c.ports.split('|').forEach(port => {
+          outPorts.push({
+            id: port,
+            group: 'out',
+            attrs: {
+              text: {
+                text: port
+              }
+            }
+          })
+        })
+        const inParams = []
+        c.params.split("~").forEach(p => {
+          const [label, value, regex] = p.split("`");
+          inParams.push({
+            label,
+            value,
+            regex
+          })
+        })
+        const comp = buildMyRect(graph, {
+          label: c.compName,
+          bgColor: '#31D0C6',
+          outPorts,
+          inParams,
+          compName: c.compName,
+          compDesc: c.compDesc
+        })
+        comps.push(comp);
       })
 
       const stencil = new Stencil({
@@ -347,145 +297,9 @@ export default {
       })
 
 
-      this.$refs.stencilContainer.appendChild(stencil.container)
+      this.$refs.stencilContainer.appendChild(stencil.container);
 
-
-      stencil.on('node:mouseenter', (a,b,c) => {
-        console.log('aaa', a,b,c)
-      })
-
-      const r = new Rect({
-        width: 70,
-        height: 40,
-        attrs: {
-          rect: {fill: '#31D0C6', stroke: '#4B4A67', strokeWidth: 1},
-          text: {text: 'rect', fill: 'white'},
-        },
-        ports: [
-          {
-            id: 'port1',
-            attrs: {
-              circle: {
-                r: 4,
-                magnet: true,
-                storke: '#31d0c6',
-                strokeWidth: 2,
-                fill: '#ffffff'
-              },
-              text: {
-                text: 'out1'
-              }
-            }
-          },
-          {
-            id: 'port2',
-            attrs: {
-              circle: {
-                r: 4,
-                magnet: true,
-                storke: '#31d0c6',
-                strokeWidth: 2,
-                fill: '#ffffff'
-              }
-            }
-          }
-        ]
-      })
-
-      const c = new Circle({
-        width: 60,
-        height: 60,
-        attrs: {
-          circle: {fill: '#FE854F', strokeWidth: 1, stroke: '#4B4A67'},
-          text: {text: 'ellipse', fill: 'white'},
-        },
-        ports: {
-          groups: {
-            in: {
-              position: 'top',
-              label: {
-                position: 'inside'
-              },
-              attrs: {
-                circle: {
-                  r: 6,
-                  magnet: true,
-                  stroke: '#31d0c6',
-                  strokeWidth: 2,
-                  fill: '#fff',
-                }
-              }
-            },
-            // 输出链接桩群组定义
-            out: {
-              position: 'bottom',
-              attrs: {
-                circle: {
-                  r: 6,
-                  magnet: true,
-                  stroke: '#31d0c6',
-                  strokeWidth: 2,
-                  fill: '#fff',
-                }
-              }
-            }
-          },
-          items: [
-            {
-              id: 'port1',
-              group: 'in',
-              attrs: {
-                text: {
-                  text: 'in1'
-                }
-              }
-            },
-            { id: 'port2', group: 'out' },
-          ]
-        }
-      })
-
-      const c2 = new Circle({
-        width: 60,
-        height: 60,
-        attrs: {
-          circle: {fill: '#4B4A67', 'stroke-width': 1, stroke: '#FE854F'},
-          text: {text: 'ellipse', fill: 'white'},
-        },
-      })
-
-      const r2 = new Rect({
-        width: 70,
-        height: 40,
-        attrs: {
-          rect: {fill: '#4B4A67', stroke: '#31D0C6', strokeWidth: 1},
-          text: {text: 'rect', fill: 'white'}
-        },
-        tools: [
-          {
-            name: 'button-remove',
-            args: {
-              x: '100%',
-              y: '100%',
-              offset: {
-                x: -18,
-                y: -18
-              }
-            }
-          }
-        ]
-      })
-
-      r2.attr({
-        image: {
-          event: 'node:delete',
-          xlinkHref: '../../assets/logo.png',
-          width: 20,
-          height: 20
-        }
-      })
-
-      stencil.load([userStatus, confirm, r, c, c2, r2.clone()])
+      stencil.load(comps);
     }
 
   }
